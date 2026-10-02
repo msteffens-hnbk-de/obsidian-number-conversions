@@ -1,0 +1,9 @@
+{
+  "id": "obsidian-number-conversions",
+  "name": "Number Conversions & Representations",
+  "version": "1.0.1",
+  "minAppVersion": "0.15.0",
+  "description": "Interactive coding conversions of numbers: Sign-and-Magnitude, 1's Complement, 2's Complement, Excess-k, and IEEE 754 Floating-Point representations with live markdown code blocks and dedicated Studio.",
+  "author": "Obsidian Number Conversions",
+  "isDesktopOnly": false
+}
