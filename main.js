@@ -336,7 +336,7 @@ class NumberConversionsPlugin extends obsidian.Plugin {
     var grpBits = panel.createDiv({ cls: 'num-control-group' });
     grpBits.createEl('label', { text: 'Bit Width (n bits):', cls: 'num-control-label' });
     var bitBtnRow = grpBits.createDiv({ cls: 'num-btn-row' });
-    var bitOptions = [4, 8, 12, 14, 16, 24, 32];
+    var bitOptions = [4, 8, 10, 12, 14, 16, 24, 32];
     var bitBtns = [];
 
     bitOptions.forEach(function(b) {
@@ -771,14 +771,13 @@ class NumberConversionsPlugin extends obsidian.Plugin {
     var grpInput = panel.createDiv({ cls: 'num-control-group', style: 'margin-top: 18px;' });
     grpInput.createEl('label', { text: 'Input Value:', cls: 'num-control-label' });
 
-    var inputRow = grpInput.createDiv({ style: 'display: flex; flex-direction: row; align-items: center; gap: 8px; width: 100%;' });
-    var modeBtnRow = inputRow.createDiv({ cls: 'num-btn-row', style: 'margin-bottom: 0; flex-shrink: 0; display: flex; gap: 4px;' });
+    var inputRow = grpInput.createDiv({ cls: 'num-float-input-line-row' });
+    var modeBtnRow = inputRow.createDiv({ cls: 'num-float-mode-group' });
     var modeBtns = {};
     ['decimal', 'hex', 'binary'].forEach(function(m) {
       var mBtn = modeBtnRow.createEl('button', {
         text: m.charAt(0).toUpperCase() + m.slice(1),
-        cls: 'num-chip-btn' + (state.inputMode === m ? ' active' : ''),
-        style: 'white-space: nowrap;'
+        cls: 'num-float-mode-btn' + (state.inputMode === m ? ' active' : '')
       });
       mBtn.addEventListener('click', function() {
         state.inputMode = m;
@@ -792,8 +791,7 @@ class NumberConversionsPlugin extends obsidian.Plugin {
     var inputEl = inputRow.createEl('input', {
       type: 'text',
       value: state.decimalVal,
-      cls: 'num-input-field',
-      style: 'flex: 1; min-width: 0;'
+      cls: 'num-float-input-field'
     });
 
     // Preset Chips
@@ -822,7 +820,8 @@ class NumberConversionsPlugin extends obsidian.Plugin {
     });
 
     // 3. Horizontal Divider & Interactive Ribbon Container
-    var ribbonContainer = panel.createDiv({ style: 'margin-top: 28px; padding-top: 20px; border-top: 2px solid var(--background-modifier-border, #4f525d);' });
+    panel.createEl('hr', { cls: 'num-studio-divider' });
+    var ribbonContainer = panel.createDiv();
 
     // 4. Breakdown Cards (Sign, Exponent, Mantissa)
     var cardsContainer = panel.createDiv({ cls: 'num-convert-grid', style: 'margin-top: 16px;' });
@@ -831,7 +830,7 @@ class NumberConversionsPlugin extends obsidian.Plugin {
     var reconContainer = panel.createDiv({ cls: 'num-recon-box' });
 
     // 6. Mantissa Bit Fractional Weights Table
-    var weightsContainer = panel.createDiv({ cls: 'num-weights-table' });
+    var weightsContainer = panel.createDiv({ cls: 'num-weights-card' });
 
     // 7. Insert Snippet Button
     var insertBtn = panel.createEl('button', {
@@ -900,14 +899,15 @@ class NumberConversionsPlugin extends obsidian.Plugin {
       ribbonTitle.createSpan({ text: 'Interactive ' + fmt.totalBits + '-Bit Ribbon (Click any bit to toggle):', style: 'font-size: 0.85em; font-weight: 600;' });
 
       var badgeCls = 'num-badge ';
-      var badgeText = 'Normalized';
+      var badgeText = '';
       if (dec.classification === 'zero') { badgeCls += 'num-badge-zero'; badgeText = 'Signed Zero (±0)'; }
       else if (dec.classification === 'subnormal') { badgeCls += 'num-badge-subnormal'; badgeText = 'Subnormal (Gradual Underflow)'; }
       else if (dec.classification === 'infinity') { badgeCls += 'num-badge-inf'; badgeText = 'Infinity (±∞)'; }
       else if (dec.classification === 'nan') { badgeCls += 'num-badge-nan'; badgeText = 'Not a Number (NaN)'; }
-      else { badgeCls += 'num-badge-normal'; badgeText = 'Normalized Number'; }
 
-      ribbonTitle.createSpan({ text: badgeText, cls: badgeCls });
+      if (badgeText) {
+        ribbonTitle.createSpan({ text: badgeText, cls: badgeCls });
+      }
       ribbonHeader.createSpan({ text: 'Hex: 0x' + dec.hex, cls: 'num-convert-card-sub' });
 
       // Color-coded Bar Labels
@@ -983,7 +983,8 @@ class NumberConversionsPlugin extends obsidian.Plugin {
 
       // Card 1: Sign (S)
       var cardSign = cardsContainer.createDiv({ cls: 'num-convert-card' });
-      cardSign.createDiv({ text: 'Sign (S)', cls: 'num-card-name', style: 'color: #f87171;' });
+      var signHdr = cardSign.createDiv({ cls: 'num-float-card-header' });
+      signHdr.createSpan({ text: 'Sign (S)', cls: 'num-float-card-title', style: 'color: #f87171;' });
       var signValRow = cardSign.createDiv({ cls: 'num-card-bits-row' });
       signValRow.createSpan({ text: dec.signBit, cls: 'num-convert-card-bits', style: 'font-size: 1.4em;' });
       signValRow.createSpan({ text: '(-1)^' + dec.signBit + ' = ' + dec.signVal, cls: 'num-convert-card-sub' });
@@ -992,42 +993,56 @@ class NumberConversionsPlugin extends obsidian.Plugin {
 
       // Card 2: Biased Exponent (E)
       var cardExp = cardsContainer.createDiv({ cls: 'num-convert-card' });
-      var expHdr = cardExp.createDiv({ style: 'display: flex; justify-content: space-between; align-items: center; width: 100%;' });
-      expHdr.createSpan({ text: 'Biased Exponent (E)', cls: 'num-card-name', style: 'color: #7dd3fc;' });
-      expHdr.createSpan({ text: 'Hex: ' + dec.expHex, cls: 'num-convert-card-sub', style: 'font-family: var(--font-monospace, monospace); color: #7dd3fc; font-size: 0.85em; margin-left: auto; text-align: right;' });
+      var expHdr = cardExp.createDiv({ cls: 'num-float-card-header' });
+      expHdr.createSpan({ text: 'Biased Exponent (E)', cls: 'num-float-card-title', style: 'color: #7dd3fc;' });
+      expHdr.createSpan({ text: 'Hex: 0x' + dec.expHex.replace(/^0x/, ''), cls: 'num-float-card-hex', style: 'color: #7dd3fc;' });
 
       var expValRow = cardExp.createDiv({ cls: 'num-card-bits-row' });
       expValRow.createSpan({ text: dec.rawExp.toString(), cls: 'num-convert-card-bits', style: 'font-size: 1.4em;' });
       expValRow.createSpan({ text: 'e = E - ' + fmt.bias + ' = ' + dec.unbiasedExp, cls: 'num-convert-card-sub' });
-      var expFooter = cardExp.createDiv({ cls: 'num-card-footer' });
-      expFooter.createSpan({ text: 'Pattern: ' + formatBinaryWithSpaces(dec.expBits), cls: 'num-convert-card-sub' });
+      var expFooter = cardExp.createDiv({ cls: 'num-card-footer', style: 'display: flex; justify-content: space-between; align-items: center; width: 100%; box-sizing: border-box;' });
+      expFooter.createSpan({ text: 'Pattern: ' + formatBinaryWithSpaces(dec.expBits), cls: 'num-convert-card-sub', style: 'flex: 1;' });
+      var expCopyBtn = createCopyButton(expFooter, dec.expBits, 'Copy binary exponent');
+      expCopyBtn.style.marginLeft = 'auto';
+      expCopyBtn.style.flexShrink = '0';
 
       // Card 3: Mantissa / Fraction (M)
       var cardMant = cardsContainer.createDiv({ cls: 'num-convert-card' });
-      var mantHdr = cardMant.createDiv({ style: 'display: flex; justify-content: space-between; align-items: center; width: 100%;' });
-      mantHdr.createSpan({ text: 'Mantissa / Fraction (M)', cls: 'num-card-name', style: 'color: #6ee7b7;' });
-      mantHdr.createSpan({ text: 'Hex: ' + dec.mantHex, cls: 'num-convert-card-sub', style: 'font-family: var(--font-monospace, monospace); color: #6ee7b7; font-size: 0.85em; margin-left: auto; text-align: right;' });
+      var mantHdr = cardMant.createDiv({ cls: 'num-float-card-header' });
+      mantHdr.createSpan({ text: 'Mantissa / Fraction (M)', cls: 'num-float-card-title', style: 'color: #6ee7b7;' });
+      mantHdr.createSpan({ text: 'Hex: 0x' + dec.mantHex.replace(/^0x/, ''), cls: 'num-float-card-hex', style: 'color: #6ee7b7;' });
 
       var mantValRow = cardMant.createDiv({ cls: 'num-card-bits-row' });
-      mantValRow.createSpan({ text: dec.mantSum.toFixed(6), cls: 'num-convert-card-bits', style: 'font-size: 1.4em;' });
-      mantValRow.createSpan({ text: '1.M: ' + (dec.classification === 'subnormal' ? '0.' : '1.') + dec.mantBits.slice(0, 6) + '...', cls: 'num-convert-card-sub' });
-      var mantFooter = cardMant.createDiv({ cls: 'num-card-footer' });
-      mantFooter.createSpan({ text: dec.classification === 'subnormal' ? 'Implicit bit: 0 (subnormal)' : 'Implicit bit: 1', cls: 'num-convert-card-sub' });
+      mantValRow.createSpan({ text: dec.mantSum.toString(), cls: 'num-convert-card-bits', style: 'font-size: 1.25em; word-break: break-all;' });
+      mantValRow.createSpan({ text: dec.classification === 'subnormal' ? 'Implicit bit: 0' : 'Implicit bit: 1', cls: 'num-convert-card-sub' });
+      var mantFooter = cardMant.createDiv({ cls: 'num-card-footer', style: 'display: flex; justify-content: space-between; align-items: center; width: 100%; box-sizing: border-box;' });
+      mantFooter.createSpan({ text: 'M: ' + formatBinaryWithSpaces(dec.mantBits), cls: 'num-convert-card-sub', style: 'font-family: var(--font-monospace, monospace); color: #6ee7b7; font-size: 0.85em; word-break: break-all; flex: 1;' });
+      var mantCopyBtn = createCopyButton(mantFooter, dec.mantBits, 'Copy binary mantissa');
+      mantCopyBtn.style.marginLeft = 'auto';
+      mantCopyBtn.style.flexShrink = '0';
 
       // --- Render Evaluated Mathematical Reconstruction ---
       reconContainer.empty();
-      var reconTitle = reconContainer.createDiv({ style: 'display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 10px;' });
-      reconTitle.createSpan({ text: 'Evaluated Mathematical Reconstruction', style: 'font-weight: 700; color: #fff; font-size: 1em;' });
+      var reconTitle = reconContainer.createDiv({ cls: 'num-recon-header' });
+      reconTitle.createSpan({ text: 'Evaluated Mathematical Reconstruction', style: 'font-weight: 700; color: #fff; font-size: 1em; flex: 1 1 auto;' });
 
       var copyBtn = reconTitle.createEl('button', {
-        text: 'Copy Decimal',
-        cls: 'num-chip-btn',
-        style: 'margin-left: auto; padding: 4px 10px; font-size: 0.8em; flex-shrink: 0;'
+        cls: 'num-recon-copy-btn'
       });
-      copyBtn.addEventListener('click', function() {
-        navigator.clipboard.writeText(dec.formattedOutput);
-        copyBtn.innerText = 'Copied!';
-        setTimeout(function() { copyBtn.innerText = 'Copy Decimal'; }, 1500);
+      copyBtn.setAttribute('title', 'Copy decimal value');
+      function setStudioCopyBtnNormal() {
+        copyBtn.innerHTML = '<span class="num-btn-icon" style="display: inline-flex; align-items: center; color: var(--interactive-accent, #60a5fa);">' + COPY_ICON_SVG + '</span><span>Copy Decimal</span>';
+      }
+      setStudioCopyBtnNormal();
+      copyBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        navigator.clipboard.writeText(dec.formattedOutput).then(function() {
+          if (window.obsidian && obsidian.Notice) {
+            new obsidian.Notice('Copied: ' + dec.formattedOutput);
+          }
+          copyBtn.innerHTML = '<span class="num-btn-icon" style="display: inline-flex; align-items: center; color: #10b981;">' + CHECK_ICON_SVG + '</span><span style="color: #10b981;">Copied!</span>';
+          setTimeout(setStudioCopyBtnNormal, 1500);
+        });
       });
 
       var reconBox = reconContainer.createDiv({ style: 'line-height: 1.6; font-size: 0.9em;' });
@@ -1058,26 +1073,34 @@ class NumberConversionsPlugin extends obsidian.Plugin {
 
       // --- Render Mantissa Bit Fractional Weights Table ---
       weightsContainer.empty();
-      var weightsHeader = weightsContainer.createDiv({ style: 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;' });
-      weightsHeader.createSpan({ text: 'Mantissa Bit Fractional Weights (Terms b_i × 2^-i):', style: 'font-weight: 600; font-size: 0.85em;' });
-      weightsHeader.createSpan({ text: 'Fraction Sum: ' + dec.mantSum.toFixed(8), style: 'color: #6ee7b7; font-weight: 700;' });
+      var weightsHeader = weightsContainer.createDiv({ cls: 'num-weights-header' });
+      weightsHeader.createSpan({ text: 'Mantissa Bit Fractional Weights', cls: 'num-weights-title' });
+      weightsHeader.createSpan({ text: 'Terms b_i × 2^-i', cls: 'num-weights-subtitle' });
+
+      weightsContainer.createDiv({ text: 'Contribution of each bit weighted by 2^-i:', cls: 'num-weights-desc' });
+
+      var weightsList = weightsContainer.createDiv({ cls: 'num-weights-list' });
 
       var maxWeightsDisplay = dec.mantDetails.length;
       for (var w = 0; w < maxWeightsDisplay; w++) {
         var item = dec.mantDetails[w];
-        var row = weightsContainer.createDiv({ cls: 'num-weight-row ' + (item.active ? 'active' : 'inactive') });
-        var left = row.createDiv({ style: 'display: flex; align-items: center; gap: 8px;' });
-        left.createSpan({ text: 'b_' + item.index, style: 'font-weight: 700; font-family: var(--font-monospace, monospace); color: var(--text-normal, #fff); background: var(--background-secondary, #202024); padding: 2px 7px; border-radius: 4px; border: 1px solid var(--background-modifier-border, #3a3b40); font-size: 0.85em;' });
+        var row = weightsList.createDiv({ cls: 'num-weight-row ' + (item.active ? 'active' : 'inactive') });
+        var left = row.createDiv({ style: 'display: flex; align-items: center; gap: 10px;' });
+        left.createSpan({ text: 'b_' + item.index, cls: 'num-weight-badge' });
         left.createSpan({
           text: item.bit,
-          style: 'display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 22px; padding: 0 5px; border-radius: 4px; font-weight: 700; font-family: var(--font-monospace, monospace); border: 2px solid ' + (item.active ? '#10b981' : '#555') + '; background: ' + (item.active ? 'rgba(16, 185, 129, 0.25)' : '#222') + '; color: ' + (item.active ? '#6ee7b7' : '#ddd') + ';'
+          cls: 'num-weight-bit ' + (item.active ? 'active' : 'inactive')
         });
-        left.createSpan({ text: '× 2^' + item.power, style: 'color: var(--text-muted, #ccc); font-family: var(--font-monospace, monospace); margin-left: 2px;' });
+        left.createSpan({ text: '× 2^' + item.power, cls: 'num-weight-power' });
         row.createSpan({
           text: item.active ? ('+' + (item.fracVal < 0.0001 ? item.fracVal.toExponential(4) : item.fracVal.toFixed(6))) : '0.000000',
-          style: 'font-weight: 600; color: ' + (item.active ? '#6ee7b7' : 'var(--text-muted, #666)') + ';'
+          cls: item.active ? 'num-weight-val-active' : 'num-weight-val-inactive'
         });
       }
+
+      var weightsFooter = weightsContainer.createDiv({ cls: 'num-weights-footer' });
+      weightsFooter.createSpan({ text: 'Total Fraction Sum:', cls: 'num-weights-footer-label' });
+      weightsFooter.createSpan({ text: dec.mantSum.toFixed(8), cls: 'num-weights-footer-sum' });
     }
 
     renderAll();
@@ -1349,7 +1372,8 @@ class NumberConversionsPlugin extends obsidian.Plugin {
     });
 
     // Divider & Ribbon
-    var ribbonHdr = container.createDiv({ style: 'margin-top: 14px; padding-top: 12px; border-top: 2px solid var(--background-modifier-border, #4f525d); display: flex; justify-content: space-between; align-items: center; font-size: 0.85em; font-family: var(--font-monospace, monospace); margin-bottom: 6px;' });
+    container.createEl('hr', { cls: 'num-studio-divider' });
+    var ribbonHdr = container.createDiv({ style: 'display: flex; justify-content: space-between; align-items: center; font-size: 0.85em; font-family: var(--font-monospace, monospace); margin-bottom: 6px;' });
     ribbonHdr.createSpan({ text: 'IEEE 754 Bit Ribbon (32-Bit):', style: 'font-weight: 600;' });
     ribbonHdr.createSpan({ text: 'Hex: 0x' + fullHex, style: 'color: var(--text-muted, #aaa);' });
 
@@ -1363,7 +1387,8 @@ class NumberConversionsPlugin extends obsidian.Plugin {
 
     // Sign Card
     var cardSign = grid.createDiv({ cls: 'num-convert-card' });
-    cardSign.createDiv({ text: 'Sign (S)', cls: 'num-card-name', style: 'color: #f87171;' });
+    var sHdr = cardSign.createDiv({ cls: 'num-float-card-header' });
+    sHdr.createSpan({ text: 'Sign (S)', cls: 'num-float-card-title', style: 'color: #f87171;' });
     var sRow = cardSign.createDiv({ cls: 'num-card-bits-row' });
     sRow.createSpan({ text: sign, cls: 'num-convert-card-bits', style: 'font-size: 1.3em;' });
     sRow.createSpan({ text: '(-1)^' + sign + ' = ' + signVal, cls: 'num-convert-card-sub' });
@@ -1372,39 +1397,53 @@ class NumberConversionsPlugin extends obsidian.Plugin {
 
     // Exponent Card
     var cardExp = grid.createDiv({ cls: 'num-convert-card' });
-    var expHdr = cardExp.createDiv({ style: 'display: flex; justify-content: space-between; align-items: center; width: 100%;' });
-    expHdr.createSpan({ text: 'Biased Exponent (E)', cls: 'num-card-name', style: 'color: #7dd3fc;' });
-    expHdr.createSpan({ text: 'Hex: ' + expHex, cls: 'num-convert-card-sub', style: 'font-family: var(--font-monospace, monospace); color: #7dd3fc; font-size: 0.85em; margin-left: auto; text-align: right;' });
+    var expHdr = cardExp.createDiv({ cls: 'num-float-card-header' });
+    expHdr.createSpan({ text: 'Biased Exponent (E)', cls: 'num-float-card-title', style: 'color: #7dd3fc;' });
+    expHdr.createSpan({ text: 'Hex: 0x' + rawExp.toString(16).toUpperCase().padStart(2, '0'), cls: 'num-float-card-hex', style: 'color: #7dd3fc;' });
     var eRow = cardExp.createDiv({ cls: 'num-card-bits-row' });
     eRow.createSpan({ text: rawExp.toString(), cls: 'num-convert-card-bits', style: 'font-size: 1.3em;' });
     eRow.createSpan({ text: 'e = ' + rawExp + ' - 127 = ' + unbiased, cls: 'num-convert-card-sub' });
-    var eFtr = cardExp.createDiv({ cls: 'num-card-footer' });
-    eFtr.createSpan({ text: 'Pattern: ' + formatBinaryWithSpaces(exp), cls: 'num-convert-card-sub' });
+    var eFtr = cardExp.createDiv({ cls: 'num-card-footer', style: 'display: flex; justify-content: space-between; align-items: center; width: 100%; box-sizing: border-box;' });
+    eFtr.createSpan({ text: 'Pattern: ' + formatBinaryWithSpaces(exp), cls: 'num-convert-card-sub', style: 'flex: 1;' });
+    var eCopyBtn = createCopyButton(eFtr, exp, 'Copy binary exponent');
+    eCopyBtn.style.marginLeft = 'auto';
+    eCopyBtn.style.flexShrink = '0';
 
     // Mantissa Card
     var cardMant = grid.createDiv({ cls: 'num-convert-card' });
-    var mantHdr = cardMant.createDiv({ style: 'display: flex; justify-content: space-between; align-items: center; width: 100%;' });
-    mantHdr.createSpan({ text: 'Mantissa / Fraction (M)', cls: 'num-card-name', style: 'color: #6ee7b7;' });
-    mantHdr.createSpan({ text: 'Hex: ' + mantHex, cls: 'num-convert-card-sub', style: 'font-family: var(--font-monospace, monospace); color: #6ee7b7; font-size: 0.85em; margin-left: auto; text-align: right;' });
+    var mantHdr = cardMant.createDiv({ cls: 'num-float-card-header' });
+    mantHdr.createSpan({ text: 'Mantissa / Fraction (M)', cls: 'num-float-card-title', style: 'color: #6ee7b7;' });
+    mantHdr.createSpan({ text: 'Hex: 0x' + mantHexVal, cls: 'num-float-card-hex', style: 'color: #6ee7b7;' });
     var mRow = cardMant.createDiv({ cls: 'num-card-bits-row' });
-    mRow.createSpan({ text: mantSum.toFixed(6), cls: 'num-convert-card-bits', style: 'font-size: 1.3em;' });
-    mRow.createSpan({ text: '1.M: 1.' + mant.slice(0, 6) + '...', cls: 'num-convert-card-sub' });
-    var mFtr = cardMant.createDiv({ cls: 'num-card-footer' });
-    mFtr.createSpan({ text: 'Implicit leading bit: 1', cls: 'num-convert-card-sub' });
+    mRow.createSpan({ text: mantSum.toString(), cls: 'num-convert-card-bits', style: 'font-size: 1.2em; word-break: break-all;' });
+    mRow.createSpan({ text: 'Implicit leading bit: 1', cls: 'num-convert-card-sub' });
+    var mFtr = cardMant.createDiv({ cls: 'num-card-footer', style: 'display: flex; justify-content: space-between; align-items: center; width: 100%; box-sizing: border-box;' });
+    mFtr.createSpan({ text: 'M: ' + formatBinaryWithSpaces(mant), cls: 'num-convert-card-sub', style: 'font-family: var(--font-monospace, monospace); color: #6ee7b7; font-size: 0.85em; word-break: break-all; flex: 1;' });
+    var mCopyBtn = createCopyButton(mFtr, mant, 'Copy binary mantissa');
+    mCopyBtn.style.marginLeft = 'auto';
+    mCopyBtn.style.flexShrink = '0';
 
     // Reconstruction Box
     var reconContainer = container.createDiv({ cls: 'num-recon-box', style: 'margin-top: 14px;' });
-    var reconTitle = reconContainer.createDiv({ style: 'display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 8px;' });
-    reconTitle.createSpan({ text: 'Evaluated Mathematical Reconstruction', style: 'font-weight: 700; color: #fff; font-size: 0.95em;' });
+    var reconTitle = reconContainer.createDiv({ cls: 'num-recon-header' });
+    reconTitle.createSpan({ text: 'Evaluated Mathematical Reconstruction', style: 'font-weight: 700; color: #fff; font-size: 0.95em; flex: 1 1 auto;' });
     var copyBtn = reconTitle.createEl('button', {
-      text: 'Copy Decimal',
-      cls: 'num-chip-btn',
-      style: 'margin-left: auto; padding: 4px 10px; font-size: 0.8em; flex-shrink: 0;'
+      cls: 'num-recon-copy-btn'
     });
-    copyBtn.addEventListener('click', function() {
-      navigator.clipboard.writeText(val.toString());
-      copyBtn.innerText = 'Copied!';
-      setTimeout(function() { copyBtn.innerText = 'Copy Decimal'; }, 1500);
+    copyBtn.setAttribute('title', 'Copy decimal value');
+    function setBlockCopyBtnNormal() {
+      copyBtn.innerHTML = '<span class="num-btn-icon" style="display: inline-flex; align-items: center; color: var(--interactive-accent, #60a5fa);">' + COPY_ICON_SVG + '</span><span>Copy Decimal</span>';
+    }
+    setBlockCopyBtnNormal();
+    copyBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      navigator.clipboard.writeText(val.toString()).then(function() {
+        if (window.obsidian && obsidian.Notice) {
+          new obsidian.Notice('Copied: ' + val.toString());
+        }
+        copyBtn.innerHTML = '<span class="num-btn-icon" style="display: inline-flex; align-items: center; color: #10b981;">' + CHECK_ICON_SVG + '</span><span style="color: #10b981;">Copied!</span>';
+        setTimeout(setBlockCopyBtnNormal, 1500);
+      });
     });
 
     var reconBox = reconContainer.createDiv({ style: 'line-height: 1.6; font-size: 0.85em; font-family: var(--font-monospace, monospace);' });
